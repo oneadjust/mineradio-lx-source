@@ -343,6 +343,8 @@ body.empty-home-active.controls-visible #empty-home{bottom:128px}
 #visual-guide-btn{font-size:18px;font-weight:780;line-height:1;color:rgba(255,255,255,.68);border-color:rgba(255,255,255,.10);background:rgba(255,255,255,.04)}
 #visual-guide-btn:hover{color:#fff;border-color:rgba(255,83,103,.40);background:rgba(255,83,103,.10);box-shadow:0 14px 38px rgba(255,83,103,.08)}
 #upload-actions{position:relative;display:flex;align-items:center;gap:8px;height:58px}
+#lx-source-upload-btn{width:auto;min-width:42px;padding:0 10px;font-size:11px;font-weight:800;letter-spacing:.04em}
+#top-lx-source-btn{width:auto;min-width:54px;padding:0 12px;font-size:11px;font-weight:850;letter-spacing:.03em}
 body.desktop-shell:not(.desktop-fullscreen) #upload-actions{margin-top:0}
 html:fullscreen body.desktop-shell #upload-actions,
 body.desktop-shell.desktop-fullscreen #upload-actions{margin-top:0}
@@ -842,6 +844,17 @@ body.login-guide-active #login-guide-canvas{opacity:1}
 .modal-btn:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.3)}
 .modal-btn.primary{background:rgba(244,210,138,0.14);border-color:rgba(244,210,138,0.50);color:var(--champagne)}
 .modal-btn.primary:hover{background:rgba(244,210,138,0.24)}
+.lx-source-modal{width:min(520px,92vw);max-width:min(520px,92vw);padding:30px;text-align:left}
+.lx-source-modal h2{text-align:center;margin-bottom:12px}
+.lx-source-modal .desc{text-align:center;margin-bottom:18px}
+.lx-source-mode-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}
+.lx-source-mode-row .modal-btn{width:100%;height:38px}
+.lx-source-url-panel{padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035)}
+.lx-source-input{width:100%;height:42px;border-radius:10px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.28);color:#fff;padding:0 12px;font-family:inherit;font-size:12px;outline:none}
+.lx-source-input:focus{border-color:rgba(244,210,138,.45);box-shadow:0 0 0 1px rgba(244,210,138,.10)}
+.lx-source-help{margin-top:8px;font-size:11px;line-height:1.5;color:rgba(255,255,255,.42)}
+.lx-source-modal .btn-row{justify-content:flex-end;flex-wrap:wrap}
+@media (max-width: 520px){.lx-source-mode-row{grid-template-columns:1fr}.lx-source-modal .btn-row{justify-content:center}.lx-source-modal .btn-row .modal-btn{flex:1 1 120px}}
 .cover-crop-modal{width:min(720px,92vw);max-width:min(720px,92vw);padding:28px;text-align:left}
 .cover-crop-modal h2{text-align:center;margin-bottom:22px}
 .cover-crop-layout{display:grid;grid-template-columns:minmax(260px,312px) 1fr;gap:24px;align-items:center}
@@ -1911,10 +1924,13 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
       <button id="search-mode-netease" type="button" onclick="setSearchMode('netease')" aria-selected="false">NE</button>
       <button id="search-mode-qq" type="button" onclick="setSearchMode('qq')" aria-selected="false">QQ</button>
       <button id="search-mode-podcast" type="button" onclick="setSearchMode('podcast')" aria-selected="false">Podcast</button>
+      <button id="lx-source-import-btn" type="button" onclick="importLxSourceFile()" title="导入 LX 自定义源脚本">导入LX源</button>
+      <button id="lx-source-clear-btn" type="button" onclick="clearLxSource()" title="清除 LX 自定义源">清除LX源</button>
     </div>
     <div id="search-results"></div>
   </div>
   <div id="upload-actions">
+    <button id="lx-source-upload-btn" class="icon-btn" onclick="importLxSourceFile()" title="导入 LX 自定义源脚本" aria-label="导入 LX 自定义源脚本">LX</button>
     <button id="upload-btn" class="icon-btn" onclick="document.getElementById('file-input').click()" title="导入音乐或封面">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
     </button>
@@ -1992,6 +2008,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <button id="home-btn" class="icon-btn" onclick="goHome()" title="回到 Home" aria-label="回到 Home">
     <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-5h5v5"/></svg>
   </button>
+  <button id="top-lx-source-btn" class="icon-btn" onclick="importLxSourceFile()" title="导入 LX 自定义源脚本" aria-label="导入 LX 自定义源脚本">LX源</button>
   <button id="user-btn" class="icon-btn logged-out" onclick="onUserBtnClick()" title="登录账号">
     <span class="login-word">登录</span>
   </button>
@@ -2499,6 +2516,27 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 </div>
 
 <!-- 用户模态 -->
+<!-- LX 音源导入 -->
+<div id="lx-source-modal" class="modal-mask">
+  <div class="modal lx-source-modal">
+    <h2>导入 LX 音源</h2>
+    <div class="desc">粘贴在线 JS 链接，或选择本地自定义源文件。应用不会内置默认源。</div>
+    <div class="lx-source-mode-row">
+      <button class="modal-btn primary" type="button" onclick="focusLxSourceUrlInput()">在线链接</button>
+      <button class="modal-btn" type="button" onclick="importLxSourceLocalFile()">本地文件</button>
+    </div>
+    <div class="lx-source-url-panel">
+      <input id="lx-source-url-input" class="lx-source-input" type="url" placeholder="https://.../source.js" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter') submitLxSourceUrl()">
+      <div class="lx-source-help">为了发布合规，项目不会自带任何第三方音源；链接和脚本只保存到你的本机用户数据。</div>
+    </div>
+    <div class="btn-row">
+      <button class="modal-btn" type="button" onclick="closeLxSourceModal()">取消</button>
+      <button class="modal-btn" type="button" onclick="importLxSourceLocalFile()">选择文件</button>
+      <button class="modal-btn primary" type="button" onclick="submitLxSourceUrl()">导入链接</button>
+    </div>
+  </div>
+</div>
+
 <div id="user-modal" class="modal-mask">
   <div class="modal dual-user-modal">
     <h2>账号信息</h2>
@@ -10312,10 +10350,7 @@ async function fetchBeatPrefetchAudioUrl(song) {
   var requestedQuality = normalizePlaybackQuality(playbackQuality);
   if (!isQQ && requestedQuality === 'jymaster' && !hasProviderSvip('netease', loginStatus)) requestedQuality = 'hires';
   if (isQQ && qqPlaybackQualityCeiling && (requestedQuality === 'jymaster' || requestedQuality === 'hires' || requestedQuality === 'lossless')) requestedQuality = qqPlaybackQualityCeiling;
-  var qualityParam = '&quality=' + encodeURIComponent(requestedQuality);
-  var data = isQQ
-    ? await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qualityParam)
-    : await apiJson('/api/song/url?id=' + encodeURIComponent(song.id) + qualityParam);
+  var data = await resolveOnlinePlaybackUrl(song, requestedQuality, { timeoutMs: 22000 });
   if (!data || !data.url || data.trial) return null;
   return '/api/audio?url=' + encodeURIComponent(data.url);
 }
@@ -15097,14 +15132,119 @@ async function apiJson(url, opts) {
     if (timer) clearTimeout(timer);
   }
 }
+function postJson(url, data, opts) {
+  opts = opts || {};
+  return apiJson(url, Object.assign({}, opts, {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {}),
+    body: JSON.stringify(data || {})
+  }));
+}
+function resolveOnlinePlaybackUrl(song, quality, opts) {
+  opts = opts || {};
+  return postJson('/api/play/resolve', {
+    song: song || {},
+    quality: normalizePlaybackQuality(quality || playbackQuality),
+    preferLx: opts.preferLx !== false
+  }, { timeoutMs: opts.timeoutMs || 22000 });
+}
+function importLxSourceFile() {
+  openLxSourceModal();
+}
+function openLxSourceModal() {
+  var modal = document.getElementById('lx-source-modal');
+  var input = document.getElementById('lx-source-url-input');
+  if (input) input.value = '';
+  openGsapModal(modal);
+  setTimeout(focusLxSourceUrlInput, 120);
+}
+function closeLxSourceModal() {
+  closeGsapModal(document.getElementById('lx-source-modal'));
+}
+function focusLxSourceUrlInput() {
+  var input = document.getElementById('lx-source-url-input');
+  if (input) input.focus();
+}
+function submitLxSourceUrl() {
+  var input = document.getElementById('lx-source-url-input');
+  var sourceUrl = String((input && input.value) || '').trim();
+  if (!sourceUrl) {
+    showToast('请先粘贴 LX 音源链接');
+    focusLxSourceUrlInput();
+    return;
+  }
+  if (!/^https?:\/\//i.test(sourceUrl)) {
+    showToast('请输入 http/https 在线链接');
+    focusLxSourceUrlInput();
+    return;
+  }
+  importLxSourceUrl(sourceUrl);
+}
+function importLxSourceUrl(sourceUrl) {
+  sourceUrl = sourceUrl.trim();
+  if (!sourceUrl) return;
+  showToast('正在在线导入 LX 音源...');
+  postJson('/api/lx/source/import-url', { url: sourceUrl }, { timeoutMs: 26000 }).then(function(data){
+    if (data && data.hasCustomSource) {
+      showToast('LX 音源已在线导入');
+      closeLxSourceModal();
+    }
+    else showToast('LX 音源导入失败: ' + ((data && data.error) || '初始化失败'));
+  }).catch(function(err){
+    showToast('LX 音源在线导入失败');
+    console.warn('[LXSourceImportUrl]', err);
+  });
+}
+function importLxSourceLocalFile() {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.js,.txt,application/javascript,text/javascript,text/plain';
+  input.onchange = function(){
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      postJson('/api/lx/source/import', { script: String(reader.result || '') }, { timeoutMs: 22000 }).then(function(data){
+        if (data && data.hasCustomSource) {
+          showToast('LX 音源已导入');
+          closeLxSourceModal();
+        }
+        else showToast('LX 音源导入失败: ' + ((data && data.error) || '初始化失败'));
+      }).catch(function(err){
+        showToast('LX 音源导入失败');
+        console.warn('[LXSourceImport]', err);
+      });
+    };
+    reader.onerror = function(){ showToast('LX 音源文件读取失败'); };
+    reader.readAsText(file, 'utf-8');
+  };
+  input.click();
+}
+function clearLxSource() {
+  postJson('/api/lx/source/clear', {}, { timeoutMs: 8000 }).then(function(){
+    showToast('LX 音源已清除');
+  }).catch(function(err){
+    showToast('LX 音源清除失败');
+    console.warn('[LXSourceClear]', err);
+  });
+}
+async function hasLxCustomSource() {
+  try {
+    var status = await apiJson('/api/lx/sources', { timeoutMs: 5000 });
+    return !!(status && status.hasCustomSource);
+  } catch (e) {
+    console.warn('[LXSourceStatus]', e);
+    return false;
+  }
+}
 function escHtml(s){ var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function normalizePlaybackQuality(value) {
   value = String(value || '').toLowerCase();
   if (value === 'jymaster' || value === 'master' || value === 'svip') return 'jymaster';
-  if (value === 'hires' || value === 'hi-res' || value === 'highres' || value === 'highest') return 'hires';
+  if (value === 'hires' || value === 'hi-res' || value === 'highres' || value === 'highest' || value === 'flac24bit') return 'hires';
   if (value === 'lossless' || value === 'flac' || value === 'sq') return 'lossless';
   if (value === 'exhigh' || value === 'high' || value === '320k' || value === 'hq') return 'exhigh';
-  if (value === 'standard' || value === 'normal' || value === 'std') return 'standard';
+  if (value === 'standard' || value === 'normal' || value === 'std' || value === '128k') return 'standard';
   return 'hires';
 }
 function playbackQualityLabel(value) {
@@ -15271,6 +15411,12 @@ function coverProxySrc(url, cacheBust) {
 function coverUrlWithSize(url, size) {
   if (!url || isInlineCoverSrc(url) || !/^https?:\/\//i.test(url)) return url || '';
   if (!size) return url;
+  if (/img\d*\.kuwo\.cn\/star\/albumcover\/\d+\//i.test(url)) {
+    return url.replace(/(img\d*\.kuwo\.cn\/star\/albumcover\/)\d+\//i, '$1' + size + '/');
+  }
+  if (/img\d*\.kuwo\.cn\/star\/starheads\/\d+\//i.test(url)) {
+    return url.replace(/(img\d*\.kuwo\.cn\/star\/starheads\/)\d+\//i, '$1' + size + '/');
+  }
   var param = 'param=' + size + 'y' + size;
   if (/[?&]param=\d+y\d+/i.test(url)) return url.replace(/([?&])param=\d+y\d+/i, '$1' + param);
   return url + (url.indexOf('?') >= 0 ? '&' : '?') + param;
@@ -16337,6 +16483,7 @@ function songDurationLabel(song) {
 function songSourceLabel(song) {
   if (!song) return '未知';
   if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return 'QQ 音乐';
+  if (song.provider === 'lx' || song.source === 'lx' || song.source === 'kw' || song.lxSource) return 'LX 音源';
   if (song.type === 'local') return '本地上传';
   if (song.type === 'podcast' || song.source === 'podcast') return '网易云播客';
   return '网易云音乐';
@@ -17507,11 +17654,12 @@ updateSearchModeTabs();
 
 function songProviderKey(song) {
   if (song && (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq')) return 'qq';
+  if (song && (song.provider === 'lx' || song.source === 'lx' || song.source === 'kw' || song.lxSource)) return 'lx';
   return 'netease';
 }
 function songSourceTagHtml(song) {
   var key = songProviderKey(song);
-  var label = key === 'qq' ? 'QQ' : 'NE';
+  var label = key === 'qq' ? 'QQ' : (key === 'lx' ? 'LX' : 'NE');
   return '<span class="tag-source ' + key + '">' + label + '</span>';
 }
 function searchResultMetaText(song) {
@@ -17630,38 +17778,88 @@ function scoreSongSearchResult(song, q, sourceIndex) {
   return score;
 }
 function mergeSongSearchResults(neteaseSongs, qqSongs, limit, q) {
+  var lxSongs = [];
+  if (Array.isArray(limit)) {
+    lxSongs = limit;
+    limit = q;
+    q = arguments[4];
+  }
   var out = [];
   var seen = {};
+  var seenTitleArtist = {};
   function push(song, sourceIndex) {
     if (!song || !song.name) return;
     var key = songProviderKey(song) + ':' + (song.mid || song.id || (song.name + '|' + song.artist));
+    var titleArtistKey = simpleSearchNorm(song.name) + '|' + simpleSearchNorm(song.artist || song.singer);
     if (seen[key]) return;
+    if (titleArtistKey && seenTitleArtist[titleArtistKey]) return;
     seen[key] = true;
+    if (titleArtistKey) seenTitleArtist[titleArtistKey] = true;
     song._searchScore = scoreSongSearchResult(song, q, sourceIndex);
+    if (songProviderKey(song) === 'lx') song._searchScore += 36;
     out.push(song);
   }
+  (lxSongs || []).forEach(function(song, i){ push(song, i); });
   (neteaseSongs || []).forEach(function(song, i){ push(song, i); });
   (qqSongs || []).forEach(function(song, i){ push(song, i); });
   out.sort(function(a, b){ return (b._searchScore || 0) - (a._searchScore || 0); });
   return out.slice(0, limit);
 }
+function mapLxSearchResults(list) {
+  return (list || []).map(function(item){
+    item = item || {};
+    var lxSource = item.source || 'kw';
+    return {
+      id: item.id || item.songmid || item.mid || '',
+      mid: item.songmid || item.mid || item.id || '',
+      songmid: item.songmid || item.mid || item.id || '',
+      name: item.name || item.songName || '',
+      artist: item.artist || item.singer || '',
+      singer: item.singer || item.artist || '',
+      album: item.album || item.albumName || '',
+      albumName: item.albumName || item.album || '',
+      duration: item.duration || 0,
+      interval: item.interval || '',
+      cover: item.cover || item.img || '',
+      picUrl: item.cover || item.img || '',
+      img: item.img || item.cover || '',
+      artistPic: item.artistPic || '',
+      mvPic: item.mvPic || '',
+      provider: 'lx',
+      source: lxSource,
+      lxSource: lxSource,
+      type: 'online',
+      playable: true,
+      fee: 0,
+      types: item.types || [],
+      _types: item._types || {},
+    };
+  }).filter(function(song){ return song.name && (song.id || song.songmid); });
+}
 async function fetchMusicSearchResults(q, mode) {
   if (mode === 'qq') {
     var qqOnly = await apiJson('/api/qq/search?keywords=' + encodeURIComponent(q) + '&limit=12');
-    return mergeSongSearchResults([], qqOnly.songs || [], 18, q);
+    return mergeSongSearchResults([], qqOnly.songs || [], [], 18, q);
   }
   if (mode === 'netease') {
     var neOnly = await apiJson('/api/search?keywords=' + encodeURIComponent(q) + '&limit=18');
-    return mergeSongSearchResults(neOnly.songs || [], [], 18, q);
+    return mergeSongSearchResults(neOnly.songs || [], [], [], 18, q);
   }
-  var result = await Promise.allSettled([
+  var lxReady = await hasLxCustomSource();
+  var tasks = [
     apiJson('/api/search?keywords=' + encodeURIComponent(q) + '&limit=14'),
     apiJson('/api/qq/search?keywords=' + encodeURIComponent(q) + '&limit=12')
-  ]);
-  var neteaseSongs = result[0].status === 'fulfilled' ? ((result[0].value && result[0].value.songs) || []) : [];
-  var qqSongs = result[1].status === 'fulfilled' ? ((result[1].value && result[1].value.songs) || []) : [];
-  if (result[1].status === 'rejected') console.warn('QQ search failed:', result[1].reason);
-  return mergeSongSearchResults(neteaseSongs, qqSongs, 18, q);
+  ];
+  if (lxReady) tasks.unshift(apiJson('/api/lx/search?keywords=' + encodeURIComponent(q) + '&limit=12'));
+  var result = await Promise.allSettled(tasks);
+  var lxSongs = lxReady && result[0].status === 'fulfilled' ? mapLxSearchResults((result[0].value && result[0].value.list) || []) : [];
+  var neteaseIndex = lxReady ? 1 : 0;
+  var qqIndex = lxReady ? 2 : 1;
+  var neteaseSongs = result[neteaseIndex].status === 'fulfilled' ? ((result[neteaseIndex].value && result[neteaseIndex].value.songs) || []) : [];
+  var qqSongs = result[qqIndex].status === 'fulfilled' ? ((result[qqIndex].value && result[qqIndex].value.songs) || []) : [];
+  if (lxReady && result[0].status === 'rejected') console.warn('LX search failed:', result[0].reason);
+  if (result[qqIndex].status === 'rejected') console.warn('QQ search failed:', result[qqIndex].reason);
+  return mergeSongSearchResults(neteaseSongs, qqSongs, lxSongs, 18, q);
 }
 function renderSongSearchResults(songs) {
   playlist = songs || [];
@@ -18133,7 +18331,10 @@ function playSearchResult(i) {
 var firstPlayDone = false;
 
 function playbackProviderLabel(song) {
-  return songProviderKey(song) === 'qq' ? 'QQ 音乐' : '网易云';
+  var key = songProviderKey(song);
+  if (key === 'qq') return 'QQ 音乐';
+  if (key === 'lx') return 'LX';
+  return '网易云';
 }
 function playbackLoginProvider(song) {
   return songProviderKey(song) === 'qq' ? 'qq' : 'netease';
@@ -18467,10 +18668,7 @@ async function playQueueAt(idx, opts) {
     if (isQQPlayback && qqPlaybackQualityCeiling && (requestedQuality === 'jymaster' || requestedQuality === 'hires' || requestedQuality === 'lossless')) {
       requestedQuality = qqPlaybackQualityCeiling;
     }
-    var qualityParam = '&quality=' + encodeURIComponent(requestedQuality);
-    var data = isQQPlayback
-      ? await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qualityParam)
-      : await apiJson('/api/song/url?id=' + song.id + qualityParam);
+    var data = await resolveOnlinePlaybackUrl(song, requestedQuality, { timeoutMs: 22000 });
     if (token !== trackSwitchToken) return;
     if (!data.url) {
       if (isQQPlayback && await retryQQPlaybackWithCompatibleQuality(song, idx, token, opts, data, requestedQuality)) return;
@@ -18483,6 +18681,11 @@ async function playQueueAt(idx, opts) {
       showSourceFallbackNotice('网易云音质自动降级', '请求 ' + playbackQualityLabel(requestedQuality) + '，实际播放 ' + resolvedQualityText + '。');
     } else if (opts.qualitySwitch) {
       showSourceFallbackNotice('音质已切换', '实际播放: ' + resolvedQualityText + '。');
+    }
+    if (data.playSource === 'lx') {
+      showSourceFallbackNotice('LX 音源播放', '推荐: ' + playbackProviderLabel(song) + ' · 播放: LX / ' + (data.matchedSource || 'custom'));
+    } else if (data.fallbackUsed && data.lxError) {
+      showSourceFallbackNotice('LX 音源不可用', '已回退到 ' + playbackProviderLabel(song) + '。' + data.lxError);
     }
     if (data.trial) {
       var txt;
@@ -23214,6 +23417,7 @@ function bindModalBackdropClose() {
   [
     ['track-detail-modal', closeTrackDetailModal],
     ['login-modal', closeLoginModal],
+    ['lx-source-modal', closeLxSourceModal],
     ['user-modal', closeUserModal],
     ['custom-lyric-modal', closeCustomLyricModal],
     ['update-modal', closeUpdatePanel]

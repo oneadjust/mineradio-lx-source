@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.2.0
+
+- 新增 LX 自定义源播放解析层：网易云/QQ 继续负责推荐和歌单，播放 URL 优先通过用户导入的 LX 源解析。
+- 新增 LX 源导入弹窗，支持在线 JS 链接和本地文件导入，成功后保存到本机用户数据目录。
+- 新增 `/api/lx/sources`、`/api/lx/source/import`、`/api/lx/source/import-url`、`/api/lx/source/clear`、`/api/lx/search` 和 `/api/play/resolve`。
+- 搜索页仅在用户导入 LX 自定义源后展示 LX 结果，项目不内置任何默认音源脚本或默认音源地址。
+- 播放时区分推荐来源和播放来源；LX 解析失败时回退原网易云/QQ 播放接口。
+- 增加 `docs/LX_SOURCE_INTEGRATION.md`，记录官方更新后快速恢复本次整合改动的方法和检查清单。
+
 ## v1.1.1
 
 - P0 installer safety fix: installation now defaults to the first available non-C drive from `D:\Mineradio` through `Z:\Mineradio`; it falls back to `C:\Mineradio` only when no D-Z drive exists.

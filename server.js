@@ -53,12 +53,18 @@ const tls = require('tls');
 const { once } = require('events');
 const { fileURLToPath } = require('url');
 const { analyzePodcastDjStream, analyzePodcastDjIntro } = require('./dj-analyzer');
+const {
+  LxSourceManager,
+  resolveWithLx,
+  searchKuwo,
+} = require('./lib/lx-source');
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const COOKIE_FILE = process.env.COOKIE_FILE || path.join(__dirname, '.cookie');
 const QQ_COOKIE_FILE = process.env.QQ_COOKIE_FILE || path.join(__dirname, '.qq-cookie');
+const LX_SOURCE_FILE = process.env.MINERADIO_LX_SOURCE_FILE || path.join(__dirname, '.lx-source.js');
 const UPDATE_WORK_DIR = process.env.MINERADIO_UPDATE_DIR || path.join(__dirname, 'updates');
 const UPDATE_DOWNLOAD_DIR = process.env.MINERADIO_UPDATE_DOWNLOAD_DIR || path.join(UPDATE_WORK_DIR, 'downloads');
 const UPDATE_PATCH_BACKUP_DIR = process.env.MINERADIO_PATCH_BACKUP_DIR || path.join(UPDATE_WORK_DIR, 'backups', 'patches');
@@ -86,6 +92,30 @@ const WEATHER_DEFAULT_LOCATION = {
 };
 
 const updateDownloadJobs = new Map();
+const lxSourceManager = new LxSourceManager(LX_SOURCE_FILE);
+
+process.on('uncaughtException', (err) => {
+  console.error('[UncaughtException]', err && err.stack || err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('[UnhandledRejection]', err && err.stack || err);
+});
+
+async function fetchLxSourceScriptFromUrl(sourceUrl) {
+  const raw = String(sourceUrl || '').trim();
+  if (!/^https?:\/\//i.test(raw)) throw new Error('LX_SOURCE_URL_INVALID');
+  const resp = await fetchWithTimeout(raw, {
+    headers: {
+      'User-Agent': `Mineradio/${APP_VERSION}`,
+      Accept: 'application/javascript,text/javascript,text/plain,*/*',
+    },
+  }, 15000);
+  if (!resp.ok) throw new Error('LX_SOURCE_URL_HTTP_' + resp.status);
+  const text = await resp.text();
+  if (!text.trim()) throw new Error('LX_SOURCE_EMPTY');
+  if (Buffer.byteLength(text, 'utf8') > 2 * 1024 * 1024) throw new Error('LX_SOURCE_TOO_LARGE');
+  return text;
+}
 
 function applySystemCertificateAuthorities() {
   try {
@@ -2344,8 +2374,19 @@ function audioProxyHeadersFor(audioUrl, range) {
   try {
     const host = new URL(audioUrl).hostname.toLowerCase();
     if (host.includes('qq.com') || host.includes('qpic.cn')) headers.Referer = 'https://y.qq.com/';
+    else if (host.includes('kuwo.cn')) headers.Referer = 'https://www.kuwo.cn/';
   } catch (e) {}
   if (range) headers.Range = range;
+  return headers;
+}
+
+function imageProxyHeadersFor(imageUrl) {
+  const headers = { 'User-Agent': UA, Referer: 'https://music.163.com/' };
+  try {
+    const host = new URL(imageUrl).hostname.toLowerCase();
+    if (host.includes('qq.com') || host.includes('qpic.cn')) headers.Referer = 'https://y.qq.com/';
+    else if (host.includes('kuwo.cn')) headers.Referer = 'https://www.kuwo.cn/';
+  } catch (e) {}
   return headers;
 }
 
@@ -3102,6 +3143,93 @@ async function handleSongUrl(id, loginInfo, qualityPreference) {
   };
 }
 
+function resolveSongProvider(song) {
+  const raw = String(song && (song.provider || song.source || song.type) || '').toLowerCase();
+  if (raw === 'qq' || raw === 'tx') return 'qq';
+  if (raw === 'lx' || raw === 'kw' || raw === 'kuwo' || raw === 'kg' || raw === 'kugou' || raw === 'mg' || raw === 'migu') return 'lx';
+  if (raw === 'netease' || raw === 'wy' || raw === '163') return 'netease';
+  if (song && (song.mid || song.mediaMid || song.media_mid || song.qqId)) return 'qq';
+  return 'netease';
+}
+
+async function resolvePlayableUrl(payload) {
+  payload = payload || {};
+  const song = payload.song || payload.musicInfo || payload;
+  const quality = payload.quality || payload.requestedQuality || '';
+  const preferLx = payload.preferLx !== false;
+  const provider = resolveSongProvider(song);
+  const attempts = [];
+
+  if (preferLx) {
+    try {
+      const lx = await resolveWithLx(lxSourceManager, song, quality);
+      return {
+        ...lx,
+        provider,
+        recommendationSource: provider,
+        fallbackUsed: false,
+        attempts,
+      };
+    } catch (err) {
+      attempts.push({
+        playSource: 'lx',
+        error: err && err.message || String(err),
+        code: err && err.code || 'LX_RESOLVE_FAILED',
+      });
+    }
+  }
+
+  if (provider === 'qq') {
+    const mid = song.mid || song.songmid || song.mediaMid || song.media_mid || song.id || '';
+    const mediaMid = song.mediaMid || song.media_mid || '';
+    const info = await handleQQSongUrl(mid, mediaMid, quality);
+    return {
+      ...info,
+      provider: 'qq',
+      recommendationSource: provider,
+      playSource: 'qq',
+      fallbackUsed: attempts.length > 0,
+      lxError: attempts[0] && attempts[0].error,
+      attempts,
+    };
+  }
+
+  if (provider === 'lx') {
+    const lxAttempt = attempts[0] || {};
+    return {
+      ok: false,
+      url: '',
+      playable: false,
+      provider: 'lx',
+      recommendationSource: 'lx',
+      playSource: 'lx',
+      fallbackUsed: attempts.length > 0,
+      lxError: lxAttempt.error || 'LX_RESOLVE_FAILED',
+      attempts,
+      message: 'LX 音源没有返回可播放地址',
+    };
+  }
+
+  const sid = song.id || song.songmid || song.mid || '';
+  const loginInfo = await getLoginInfo();
+  const info = await handleSongUrl(sid, loginInfo, quality);
+  return {
+    ...info,
+    provider: 'netease',
+    recommendationSource: provider,
+    playSource: 'netease',
+    fallbackUsed: attempts.length > 0,
+    lxError: attempts[0] && attempts[0].error,
+    attempts,
+    loggedIn: loginInfo.loggedIn,
+    vipType: loginInfo.vipType || 0,
+    vipLevel: loginInfo.vipLevel || 'none',
+    isVip: !!loginInfo.isVip,
+    isSvip: !!loginInfo.isSvip,
+    vipLabel: loginInfo.vipLabel || '无 VIP',
+  };
+}
+
 // ---------- 业务: 登录态/用户信息 ----------
 function readCookieFromResponse(resp) {
   const candidates = [
@@ -3432,6 +3560,82 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[QQSearch]', err);
       sendJSON(res, { provider: 'qq', error: err.message, songs: [] }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/lx/sources') {
+    sendJSON(res, lxSourceManager.getStatus());
+    return;
+  }
+
+  if (pn === '/api/lx/source/import') {
+    if (req.method !== 'POST') { sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405); return; }
+    try {
+      const body = await readRequestBody(req);
+      const script = body.script || body.source || body.text || body.data || '';
+      if (!String(script).trim()) { sendJSON(res, { ok: false, error: 'LX_SOURCE_EMPTY' }, 400); return; }
+      lxSourceManager.loadScript(script);
+      sendJSON(res, await lxSourceManager.waitForInit(9000));
+    } catch (err) {
+      console.error('[LXSourceImport]', err);
+      sendJSON(res, { ...lxSourceManager.getStatus(), ok: false, error: err.message || String(err) }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/lx/source/import-url') {
+    if (req.method !== 'POST') { sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405); return; }
+    try {
+      const body = await readRequestBody(req);
+      const sourceUrl = body.url || body.sourceUrl || body.href || '';
+      const script = await fetchLxSourceScriptFromUrl(sourceUrl);
+      lxSourceManager.loadScript(script);
+      sendJSON(res, { ...(await lxSourceManager.waitForInit(9000)), importedFromUrl: sourceUrl });
+    } catch (err) {
+      console.error('[LXSourceImportUrl]', err);
+      sendJSON(res, { ...lxSourceManager.getStatus(), ok: false, error: err.message || String(err) }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/lx/source/clear') {
+    if (req.method !== 'POST') { sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405); return; }
+    try {
+      lxSourceManager.clear();
+      sendJSON(res, lxSourceManager.getStatus());
+    } catch (err) {
+      sendJSON(res, { ok: false, error: err.message || String(err) }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/lx/search') {
+    try {
+      const kw = String(url.searchParams.get('keywords') || url.searchParams.get('q') || '').trim();
+      const limit = Math.max(4, Math.min(30, parseInt(url.searchParams.get('limit') || '12', 10) || 12));
+      if (!lxSourceManager.getStatus().hasCustomSource) {
+        sendJSON(res, { source: 'kw', list: [], total: 0, disabled: true, reason: 'LX_CUSTOM_SOURCE_REQUIRED' });
+        return;
+      }
+      if (!kw) { sendJSON(res, { source: 'kw', list: [], total: 0 }); return; }
+      sendJSON(res, await searchKuwo(kw, limit));
+    } catch (err) {
+      console.error('[LXSearch]', err);
+      sendJSON(res, { source: 'kw', error: err.message || String(err), list: [] }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/play/resolve') {
+    if (req.method !== 'POST') { sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405); return; }
+    try {
+      const body = await readRequestBody(req);
+      const data = await resolvePlayableUrl(body);
+      sendJSON(res, data);
+    } catch (err) {
+      console.error('[PlayResolve]', err);
+      sendJSON(res, { ok: false, playable: false, url: '', error: err.message || String(err) }, 500);
     }
     return;
   }
@@ -4141,7 +4345,7 @@ const server = http.createServer(async (req, res) => {
         res.end('Invalid cover url');
         return;
       }
-      const resp = await fetch(coverUrl, { headers: { 'User-Agent': UA, 'Referer': 'https://music.163.com/' } });
+      const resp = await fetch(coverUrl, { headers: imageProxyHeadersFor(coverUrl) });
       const ct  = resp.headers.get('content-type') || 'image/jpeg';
       const cl  = resp.headers.get('content-length');
       const hdr = {

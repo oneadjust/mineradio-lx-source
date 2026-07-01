@@ -486,7 +486,7 @@ async function openNeteaseMusicLoginWindow(owner) {
       try {
         const cookie = await readNeteaseLoginCookieHeader(cookieSession);
         resolve(neteaseCookieHasLogin(cookie)
-          ? { ok: true, cookie, partial: !qqCookieHasPlaybackLogin(cookie) }
+          ? { ok: true, cookie }
           : { ok: false, cancelled: true, message: '网易云登录窗口已关闭' });
       } catch (e) {
         resolve({ ok: false, error: e.message || '网易云登录窗口已关闭' });
@@ -1327,6 +1327,7 @@ async function createWindow() {
   process.env.PORT = String(port);
   process.env.COOKIE_FILE = path.join(app.getPath('userData'), '.cookie');
   process.env.QQ_COOKIE_FILE = path.join(app.getPath('userData'), '.qq-cookie');
+  process.env.MINERADIO_LX_SOURCE_FILE = path.join(app.getPath('userData'), 'lx-user-source.js');
   process.env.MINERADIO_UPDATE_DIR = getUpdateDownloadDir();
   try {
     const legacyQQCookie = path.join(__dirname, '..', '.qq-cookie');
@@ -1337,7 +1338,7 @@ async function createWindow() {
       fs.unlinkSync(legacyQQCookie);
     }
   } catch (e) {
-    console.warn('QQ cookie migration skipped:', e.message);
+    console.warn('User data migration skipped:', e.message);
   }
 
   localServer = require(path.join(__dirname, '..', 'server.js'));
